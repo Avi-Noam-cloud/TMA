@@ -2,51 +2,66 @@
 
 ## What This Does
 
-This HTML block reduces the promotional-threshold signals that cause Gmail, Outlook, and Yahoo to route your Klaviyo emails to the **Promotions** tab instead of the **Primary** inbox.
+This is a **minimal** HTML block that removes template fingerprints and sets a clean preheader. It does NOT try to trick Gmail with hidden text — that approach backfires.
 
-It works by applying the same core techniques as Mailmend:
+### What it includes
 
-| Technique | What It Targets |
+| Technique | Purpose |
 |---|---|
-| **Structural flattening** | Reduces nested table depth (a key broadcast signal) to 1 level |
-| **Text-weight balancing** | Increases plain-text-to-HTML ratio to mimic personal correspondence |
-| **Preheader displacement** | Uses zero-width characters to prevent promotional boilerplate from leaking into Gmail's snippet preview |
-| **Semantic anchors** | Inserts `mailto:` links and reply-oriented language that score as "personal" in classification |
-| **Conversation simulation** | Adds first-person, question/response language patterns that Gmail's classifier associates with one-to-one mail |
-| **CSS fingerprint reset** | Strips template-builder CSS signatures (MJML, Litmus, Klaviyo drag-and-drop) that identify bulk sends |
-| **Dynamic personalization** | Uses Klaviyo merge tags (`{{first_name}}`, `{{email}}`, `{{organization.name}}`) as additional personalization signals |
+| **Single preheader div** | Controls the Gmail snippet preview without triggering hidden-text detection |
+| **CSS fingerprint reset** | Strips template-builder signatures (MJML, Litmus, Klaviyo drag-and-drop) that identify bulk sends |
+| **MSO font normalization** | Prevents Outlook from injecting its own font stack |
+
+### What was removed (and why)
+
+| Removed | Why |
+|---|---|
+| Multiple hidden divs | Gmail detects 2+ hidden blocks as manipulation — penalizes placement |
+| Zero-width character stuffing (80+ entities) | Known deliverability-tool fingerprint since 2023; flagged by Gmail |
+| Hidden "conversational" text | NLP mismatch between hidden personal text and visible promotional content is a negative signal |
+| Hidden mailto: link | Recognized trick; no longer helps |
+| Fake reply language | "Sent from my workspace", "just following up" in hidden text is detectable filler |
+
+## The Hard Truth
+
+**This block alone will not move you to Primary.** Gmail classifies based on the entire email. The block handles CSS cleanup and preheader — the rest depends on your actual email content and sending practices.
 
 ## How to Implement in Klaviyo
 
-### Step 1: Open Your Template
+### Step 1: Insert the Block
 
 1. Go to **Content** → **Templates** in Klaviyo
-2. Open the template you want to optimize
-3. Click **Edit HTML/CSS** (source code view)
+2. Open your template → **Edit HTML/CSS**
+3. Paste the contents of `klaviyo-deliverability-block.html` immediately after `<body>`
+4. Save
 
-### Step 2: Insert the Block
+### Step 2: Fix Your Actual Email (This Is What Matters)
 
-1. Copy the entire contents of `klaviyo-deliverability-block.html`
-2. Paste it **immediately after** the opening `<body>` tag
-3. Your main email content should come **after** the deliverability block
-4. Save the template
+These changes to your **visible email content** have far more impact than any hidden block:
 
-### Step 3: Validate with A/B Testing
+1. **Flatten your table structure** — max 2 levels of nesting. Personal emails use 0-1.
+2. **Cut links to 3 or fewer** — every URL is a promotional signal. One CTA is ideal.
+3. **Remove image-heavy layouts** — aim for 80%+ visible text. A single hero image max.
+4. **Use a real reply-to** — never `no-reply@`. Gmail checks this.
+5. **Write like a person** — short paragraphs, first person, no marketing headers. The subject line matters most: `{{first_name}}, quick question` beats `🔥 HUGE SALE 50% OFF`.
+6. **Remove unsubscribe from the body** — Klaviyo adds the list-unsubscribe header automatically. A visible unsubscribe link in the footer is a promotional signal.
+7. **Send from a personal name** — "Sarah from Acme" or just "Sarah", not "Acme Marketing Team".
 
-1. Create a campaign using the modified template
-2. Use Klaviyo's **A/B test** feature:
-   - **Variant A**: Template WITH the deliverability block
-   - **Variant B**: Original template WITHOUT the block (control)
-3. Split your audience 50/50
-4. Measure **open rate** and **click rate** — Primary inbox placement will show as higher opens from Gmail recipients
+### Step 3: Fix Your Sending Practices
 
-### Step 4: Monitor & Iterate
+8. **Segment aggressively** — only email people who opened in the last 30 days
+9. **Authenticate your domain** — SPF, DKIM, and DMARC must all pass
+10. **Warm your sends** — don't blast 50k at once. Ramp up over 2-3 weeks.
+11. **Send at consistent times** — erratic sending patterns are a spam signal
 
-- Check placement weekly using Gmail seed accounts
-- If Gmail updates its filtering (watch for announcements about Gemini-enhanced filtering), the block may need recalibration
-- Re-test after any major template redesign
+### Step 4: Test
 
-## Template Structure Example
+- Send to 3-5 personal Gmail accounts before every campaign
+- Check Primary vs. Promotions placement
+- Use Klaviyo A/B testing: modified template vs. control
+- Measure open rate from Gmail recipients specifically
+
+## Template Structure
 
 ```html
 <!DOCTYPE html>
@@ -57,14 +72,14 @@ It works by applying the same core techniques as Mailmend:
 </head>
 <body>
 
-  <!-- PASTE DELIVERABILITY BLOCK HERE -->
+  <!-- DELIVERABILITY BLOCK -->
   {% include 'klaviyo-deliverability-block.html' %}
 
-  <!-- YOUR NORMAL EMAIL CONTENT BELOW -->
+  <!-- KEEP YOUR EMAIL SIMPLE BELOW -->
   <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
-      <td>
-        <!-- Email body -->
+      <td style="padding:20px;font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#333333;">
+        <!-- Plain text-forward content here -->
       </td>
     </tr>
   </table>
@@ -72,24 +87,3 @@ It works by applying the same core techniques as Mailmend:
 </body>
 </html>
 ```
-
-## Important Notes
-
-- **Do NOT nest** this block inside other `<table>` elements — it must sit at the top level of `<body>`
-- The hidden text is **invisible** to recipients but **visible** to MBP parsers
-- The `&#847;` entities are zero-width non-breaking spaces used as padding — do not remove them
-- Klaviyo merge tags (`{{first_name}}`, `{{email}}`, etc.) will render dynamically per recipient, adding real personalization signals
-- This block adds ~3KB to your email — well within acceptable size limits
-
-## Additional Best Practices for Primary Inbox Placement
-
-Beyond the HTML block, follow these practices to maximize deliverability:
-
-1. **Keep your main template simple** — avoid more than 2 levels of nested tables
-2. **Maintain a high text-to-image ratio** — aim for at least 60% text
-3. **Limit the number of links** — fewer than 5 unique URLs per email
-4. **Use a real reply-to address** — not a no-reply@ address
-5. **Personalize subject lines** — include `{{first_name}}` or other dynamic content
-6. **Clean your list regularly** — remove unengaged subscribers (no opens in 90+ days)
-7. **Avoid spam trigger words** in subject lines — "free", "act now", "limited time"
-8. **Authenticate your domain** — ensure SPF, DKIM, and DMARC are properly configured in Klaviyo
